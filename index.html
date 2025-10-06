@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LMS — Observer / Strategy / Command (Demo)</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa6b2;--accent:#60a5fa;--glass: rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071128 0%,#021726 100%);color:#e6eef6;min-height:100vh;padding:28px}
+    .app{display:grid;grid-template-columns:320px 1fr 360px;gap:20px}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(2,6,23,0.6);}
+    h2{margin:0 0 12px 0;font-size:18px}
+    small{color:var(--muted)}
+
+    /* Courses list */
+    .course{padding:10px;border-radius:8px;background:var(--glass);display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .course .meta{display:flex;flex-direction:column}
+    .course button{background:none;border:1px solid rgba(255,255,255,0.06);padding:6px 10px;border-radius:6px;color:inherit;cursor:pointer}
+
+    /* Students list */
+    .students{display:flex;flex-direction:column;gap:8px}
+    .student{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent)}
+
+    /* Actions */
+    .controls{display:grid;gap:12px}
+    select,input,button{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    .btn{background:linear-gradient(90deg,var(--accent),#3b82f6);border:none;color:#04263a;padding:10px;border-radius:8px;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+    /* Notifications */
+    .notifications{max-height:280px;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+    .note{background:rgba(96,165,250,0.08);padding:8px;border-radius:8px;color:var(--accent)}
+
+    /* Command history */
+    .history{max-height:120px;overflow:auto;border-top:1px dashed rgba(255,255,255,0.03);padding-top:8px;margin-top:8px}
+    .row{display:flex;gap:8px;align-items:center}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    @media (max-width:980px){.app{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <h1 style="margin:0 0 18px 0">LMS Demo — Observer · Strategy · Command</h1>
+  <div class="app">
+
+    <!-- LEFT: Courses -->
+    <div class="card">
+      <h2>Courses <small> (Subject)</small></h2>
+      <div id="coursesList"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <input id="newCourseName" placeholder="New course name" />
+        <button id="addCourseBtn" class="btn">Add</button>
+      </div>
+      <div style="margin-top:12px">
+        <button id="publishBtn" class="btn ghost">Publish update to selected course</button>
+      </div>
+    </div>
+
+    <!-- CENTER: Students & Notifications -->
+    <div class="card">
+      <h2>Students & Notifications</h2>
+
+      <div style="display:flex;gap:12px;margin-bottom:12px">
+        <input id="newStudentName" placeholder="Student name" />
+        <button id="addStudentBtn" class="btn">Add Student</button>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <div style="flex:1">
+          <h3 style="margin:0 0 8px 0">Students</h3>
+          <div id="studentsList" class="students"></div>
+        </div>
+        <div style="width:260px">
+          <h3 style="margin:0 0 8px 0">Notifications</h3>
+          <div class="notifications card" id="notifications"></div>
+        </div>
+      </div>
+
+      <footer>
+        Demonstrates: <strong>Observer</strong> (Course → Student notifications), <strong>Strategy</strong> (grading algorithms), <strong>Command</strong> (actions)
+      </footer>
+    </div>
+
+    <!-- RIGHT: Actions / Grading / Command History -->
+    <div class="card">
+      <h2>Actions</h2>
+
+      <div class="controls">
+        <div class="row">
+          <select id="selectedCourse"></select>
+        </div>
+
+        <div class="row">
+          <select id="selectedStudent"></select>
+        </div>
+
+        <div class="row">
+          <button id="enrollBtn" class="btn">Enroll</button>
+          <button id="dropBtn" class="btn ghost">Drop</button>
+        </div>
+
+        <div style="border-top:1px dashed rgba(255,255,255,0.03);padding-top:10px">
+          <small>Submit assignment (creates grade using chosen strategy)</small>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="scoreInput" placeholder="score (0-100)" type="number" min="0" max="100" />
+            <select id="gradingStrategy">
+              <option value="percentage">Percentage</option>
+              <option value="cgpa">CGPA</option>
+              <option value="passfail">Pass/Fail</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="submitBtn" class="btn">Submit Assignment</button>
+            <button id="undoBtn" class="btn ghost">Undo</button>
+          </div>
+        </div>
+
+        <div class="history">
+          <h4 style="margin:6px 0">Command history</h4>
+          <div id="historyList"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /******************************
+     * Observer Pattern
+     ******************************/
+    class Subject {
+      constructor(){ this.observers = new Set(); }
+      addObserver(o){ this.observers.add(o); }
+      removeObserver(o){ this.observers.delete(o); }
+      notify(payload){ for(const o of this.observers) o.update(payload); }
+    }
+
+    class Course extends Subject{
+      constructor(name){ super(); this.name=name; this.assignments=[]; }
+      publish(message){ const payload = {course:this.name, message, at: new Date()}; this.notify(payload); }
+      addAssignment(title){ this.assignments.push(title); this.publish('New Assignment: '+title); }
+    }
+
+    class Student {
+      constructor(name){ this.name=name; this.notifications=[]; this.enrolled=new Set(); }
+      update(payload){ this.notifications.unshift(`${payload.course}: ${payload.message}`); renderNotifications(); }
+      enroll(course){ this.enrolled.add(course.name); }
+      drop(course){ this.enrolled.delete(course.name); }
+      isEnrolled(course){ return this.enrolled.has(course.name); }
+    }
+
+    /******************************
+     * Strategy Pattern (Grading)
+     ******************************/
+    class GradingStrategy {
+      grade(score){ throw new Error('override'); }
+    }
+    class PercentageGrading extends GradingStrategy{ grade(score){ return `${score.toFixed(1)}%`; } }
+    class CGPAGrading extends GradingStrategy{ grade(score){ return `${(score/10).toFixed(2)} CGPA`; } }
+    class PassFailGrading extends GradingStrategy{ grade(score){ return score>=40 ? 'PASS' : 'FAIL'; } }
+
+    function makeStrategy(key){
+      if(key==='percentage') return new PercentageGrading();
+      if(key==='cgpa') return new CGPAGrading();
+      return new PassFailGrading();
+    }
+
+    /******************************
+     * Command Pattern
+     ******************************/
+    class Command { execute(){ } undo(){ } description(){ return 'command'; } }
+
+    class EnrollCommand extends Command{
+      constructor(student, course){ super(); this.student=student; this.course=course; }
+      execute(){ if(!this.student.isEnrolled(this.course)){ this.student.enroll(this.course); return true; } return false; }
+      undo(){ this.student.drop(this.course); }
+      description(){ return `Enroll ${this.student.name} → ${this.course.name}` }
+    }
+
+    class DropCommand extends Command{
+      constructor(student, course){ super(); this.student=student; this.course=course; }
+      execute(){ if(this.student.isEnrolled(this.course)){ this.student.drop(this.course); return true; } return false; }
+      undo(){ this.student.enroll(this.course); }
+      description(){ return `Drop ${this.student.name} → ${this.course.name}` }
+    }
+
+    class SubmitAssignmentCommand extends Command{
+      constructor(student, course, assignmentTitle, strategy, score){ super(); this.student=student; this.course=course; this.assignmentTitle=assignmentTitle; this.strategy=strategy; this.score=score; this.result=null; }
+      execute(){ if(!this.student.isEnrolled(this.course)) return false; const grading = makeStrategy(this.strategy); this.result = grading.grade(this.score); // store a record
+        // Simulated attach grade to student (lightweight)
+        this.student.lastSubmission = {course:this.course.name, assignment:this.assignmentTitle, score:this.score, result:this.result, at:new Date()};
+        // Let course publish that assignment was submitted (observers will also get notified)
+        this.course.publish(`Submission by ${this.student.name} for ${this.assignmentTitle} — ${this.result}`);
+        return true; }
+      undo(){ if(this.student.lastSubmission && this.student.lastSubmission.assignment===this.assignmentTitle) delete this.student.lastSubmission; }
+      description(){ return `Submit ${this.assignmentTitle} by ${this.student.name} (${this.score}) → ${this.strategy}` }
+    }
+
+    // Simple invoker that keeps history and undo
+    class Invoker{
+      constructor(){ this.history = []; }
+      execute(cmd){ const ok = cmd.execute(); if(ok){ this.history.unshift(cmd); renderHistory(); } return ok; }
+      undo(){ if(this.history.length===0) return null; const cmd = this.history.shift(); cmd.undo(); renderHistory(); return cmd; }
+    }
+
+    /******************************
+     * App state + rendering
+     ******************************/
+    const courses = [];
+    const students = [];
+    const invoker = new Invoker();
+
+    // helpers to select DOM
+    const coursesList = document.getElementById('coursesList');
+    const studentsList = document.getElementById('studentsList');
+    const notificationsEl = document.getElementById('notifications');
+    const selectedCourse = document.getElementById('selectedCourse');
+    const selectedStudent = document.getElementById('selectedStudent');
+    const historyList = document.getElementById('historyList');
+
+    function renderCourses(){
+      coursesList.innerHTML=''; selectedCourse.innerHTML='';
+      courses.forEach((c,idx)=>{
+        const div = document.createElement('div'); div.className='course';
+        div.innerHTML = `<div class=meta><strong>${c.name}</strong><small>${c.assignments.length} assignments</small></div>`;
+        const right = document.createElement('div');
+        const btnAssign = document.createElement('button'); btnAssign.innerText='New Asgmt';
+        btnAssign.onclick = ()=>{ const title = prompt('Assignment title'); if(title){ c.addAssignment(title); renderCourses(); } };
+        const sel = document.createElement('input'); sel.type='radio'; sel.name='courseSel'; sel.style.marginLeft='8px'; sel.onclick=()=>{ selectedCourse.value = idx; };
+        right.appendChild(btnAssign); right.appendChild(sel);
+        div.appendChild(right);
+        coursesList.appendChild(div);
+        const option = document.createElement('option'); option.value=idx; option.innerText=c.name; selectedCourse.appendChild(option);
+      });
+      // ensure selected index exists
+      if(selectedCourse.options.length) selectedCourse.selectedIndex = 0;
+    }
+
+    function renderStudents(){
+      studentsList.innerHTML=''; selectedStudent.innerHTML='';
+      students.forEach((s,idx)=>{
+        const el = document.createElement('div'); el.className='student';
+        el.innerHTML = `<div><strong>${s.name}</strong><div style='font-size:12px;color:var(--muted)'>Enrolled: ${[...s.enrolled].join(', ') || '—'}</div></div>`;
+        const cb = document.createElement('input'); cb.type='radio'; cb.name='studentSel'; cb.onclick=()=>{ selectedStudent.value = idx; };
+        el.appendChild(cb);
+        studentsList.appendChild(el);
+        const option = document.createElement('option'); option.value=idx; option.innerText=s.name; selectedStudent.appendChild(option);
+      });
+      if(selectedStudent.options.length) selectedStudent.selectedIndex = 0;
+    }
+
+    function renderNotifications(){
+      notificationsEl.innerHTML='';
+      // gather latest notifications from all students (flatten) - but show unique
+      const allNotes = {};
+      students.forEach(s=>{
+        s.notifications.slice(0,10).forEach(n=> allNotes[n+ '|' + s.name] = {text:n, who:s.name});
+      });
+      const entries = Object.values(allNotes).slice(0,30);
+      entries.forEach(e=>{
+        const d=document.createElement('div'); d.className='note'; d.innerText = e.text; notificationsEl.appendChild(d);
+      });
+    }
+
+    function renderHistory(){ historyList.innerHTML=''; invoker.history.forEach((c,i)=>{
+      const div = document.createElement('div'); div.className='row'; div.style.justifyContent='space-between';
+      div.innerHTML = `<div style='font-size:13px'>${c.description()}</div><div style='font-size:12px;color:var(--muted)'>${new Date().toLocaleTimeString()}</div>`;
+      historyList.appendChild(div);
+    });
+    }
+
+    // initial demo data
+    (function initDemo(){
+      const c1 = new Course('Intro to Programming');
+      const c2 = new Course('Algorithms');
+      courses.push(c1,c2);
+      const s1 = new Student('Karthisha');
+      const s2 = new Student('Ravi');
+      students.push(s1,s2);
+      // students subscribe to courses (observer)
+      c1.addObserver(s1); c1.addObserver(s2);
+      c2.addObserver(s1);
+      renderCourses(); renderStudents(); renderNotifications();
+    })();
+
+    /******************************
+     * UI wiring
+     ******************************/
+    document.getElementById('addCourseBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('newCourseName').value.trim(); if(!name) return alert('Enter name');
+      const c = new Course(name); courses.push(c); // by default no observers
+      renderCourses(); document.getElementById('newCourseName').value='';
+    });
+
+    document.getElementById('publishBtn').addEventListener('click', ()=>{
+      const idx = selectedCourse.value; if(idx===''||!courses[idx]) return alert('Select a course');
+      const msg = prompt('Message to publish','New announcement'); if(!msg) return;
+      courses[idx].publish(msg); renderNotifications();
+    });
+
+    document.getElementById('addStudentBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('newStudentName').value.trim(); if(!name) return alert('Enter student name');
+      const s = new Student(name); students.push(s);
+      // auto-subscribe student to all courses for demo
+      courses.forEach(c=> c.addObserver(s));
+      renderStudents(); renderCourses(); document.getElementById('newStudentName').value='';
+    });
+
+    document.getElementById('enrollBtn').addEventListener('click', ()=>{
+      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
+      const cmd = new EnrollCommand(students[sIdx], courses[cIdx]); const ok = invoker.execute(cmd);
+      if(!ok) alert('Already enrolled'); renderStudents(); renderHistory();
+    });
+
+    document.getElementById('dropBtn').addEventListener('click', ()=>{
+      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
+      const cmd = new DropCommand(students[sIdx], courses[cIdx]); const ok = invoker.execute(cmd);
+      if(!ok) alert('Not enrolled'); renderStudents(); renderHistory();
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', ()=>{
+      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; const score = parseFloat(document.getElementById('scoreInput').value);
+      const strat = document.getElementById('gradingStrategy').value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
+      if(Number.isNaN(score)) return alert('Enter numeric score');
+      const asg = prompt('Assignment title','Homework 1') || 'Assignment';
+      const cmd = new SubmitAssignmentCommand(students[sIdx], courses[cIdx], asg, strat, score);
+      const ok = invoker.execute(cmd);
+      if(!ok) alert('Student must be enrolled to submit'); renderStudents(); renderNotifications(); renderHistory();
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', ()=>{
+      const undone = invoker.undo(); if(!undone) alert('Nothing to undo'); renderStudents(); renderNotifications();
+    });
+
+    // simple keyboard: press 'p' to publish to selected
+    document.addEventListener('keydown', (e)=>{ if(e.key==='p') document.getElementById('publishBtn').click(); });
+
+  </script>
+</body>
+</html>
