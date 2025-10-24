@@ -3,341 +3,238 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LMS — Observer / Strategy / Command (Demo)</title>
+  <title>Cinema Booking — Demo</title>
   <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa6b2;--accent:#60a5fa;--glass: rgba(255,255,255,0.03)}
-    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
-    body{margin:0;background:linear-gradient(180deg,#071128 0%,#021726 100%);color:#e6eef6;min-height:100vh;padding:28px}
-    .app{display:grid;grid-template-columns:320px 1fr 360px;gap:20px}
-    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(2,6,23,0.6);}
-    h2{margin:0 0 12px 0;font-size:18px}
-    small{color:var(--muted)}
+    :root{ --bg:#0f172a; --card:#111827; --accent:#06b6d4; --muted:#94a3b8; --success:#10b981; --danger:#ef4444 }
+    *{box-sizing:border-box;font-family:Inter, Roboto, system-ui, -apple-system, sans-serif}
+    body{margin:0;background:linear-gradient(180deg,#071133 0%, #0f172a 100%);color:#e6eef6;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px}
+    .app{width:980px;max-width:98%;}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{margin:0;font-size:20px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
 
-    /* Courses list */
-    .course{padding:10px;border-radius:8px;background:var(--glass);display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .course .meta{display:flex;flex-direction:column}
-    .course button{background:none;border:1px solid rgba(255,255,255,0.06);padding:6px 10px;border-radius:6px;color:inherit;cursor:pointer}
+    .controls{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    select,input[type=number]{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    button{background:var(--accent);border:none;padding:8px 12px;border-radius:10px;color:#062027;cursor:pointer;font-weight:600}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
 
-    /* Students list */
-    .students{display:flex;flex-direction:column;gap:8px}
-    .student{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent)}
-
-    /* Actions */
-    .controls{display:grid;gap:12px}
-    select,input,button{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
-    .btn{background:linear-gradient(90deg,var(--accent),#3b82f6);border:none;color:#04263a;padding:10px;border-radius:8px;cursor:pointer}
-    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
-
-    /* Notifications */
-    .notifications{max-height:280px;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
-    .note{background:rgba(96,165,250,0.08);padding:8px;border-radius:8px;color:var(--accent)}
-
-    /* Command history */
-    .history{max-height:120px;overflow:auto;border-top:1px dashed rgba(255,255,255,0.03);padding-top:8px;margin-top:8px}
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:14px}
+    .seatmap{padding:12px}
+    .rows{display:flex;flex-direction:column;gap:10px}
     .row{display:flex;gap:8px;align-items:center}
+    .row .label{width:22px;color:var(--muted);font-size:13px}
+    .seat{width:36px;height:36px;border-radius:8px;background:#0b1320;border:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .seat.booked{background:#162029;color:#9aa9b3;cursor:not-allowed;opacity:0.6}
+    .seat.selected{outline:3px solid rgba(6,182,212,0.18);box-shadow:0 6px 14px rgba(2,6,23,.6)}
+    .legend{display:flex;gap:8px;margin-top:10px}
+    .legend span{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+    .legend .box{width:14px;height:14px;border-radius:3px;display:inline-block}
 
-    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    .sidebar{display:flex;flex-direction:column;gap:10px}
+    .bookings{margin-top:8px}
+    .ticket{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    .actions{display:flex;gap:8px}
 
-    @media (max-width:980px){.app{grid-template-columns:1fr;}}
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+    @media(max-width:920px){.layout{grid-template-columns:1fr}} 
   </style>
 </head>
 <body>
-  <h1 style="margin:0 0 18px 0">LMS Demo — Observer · Strategy · Command</h1>
   <div class="app">
-
-    <!-- LEFT: Courses -->
-    <div class="card">
-      <h2>Courses <small> (Subject)</small></h2>
-      <div id="coursesList"></div>
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <input id="newCourseName" placeholder="New course name" />
-        <button id="addCourseBtn" class="btn">Add</button>
-      </div>
-      <div style="margin-top:12px">
-        <button id="publishBtn" class="btn ghost">Publish update to selected course</button>
-      </div>
-    </div>
-
-    <!-- CENTER: Students & Notifications -->
-    <div class="card">
-      <h2>Students & Notifications</h2>
-
-      <div style="display:flex;gap:12px;margin-bottom:12px">
-        <input id="newStudentName" placeholder="Student name" />
-        <button id="addStudentBtn" class="btn">Add Student</button>
-      </div>
-
-      <div style="display:flex;gap:12px">
-        <div style="flex:1">
-          <h3 style="margin:0 0 8px 0">Students</h3>
-          <div id="studentsList" class="students"></div>
-        </div>
-        <div style="width:260px">
-          <h3 style="margin:0 0 8px 0">Notifications</h3>
-          <div class="notifications card" id="notifications"></div>
+    <header>
+      <div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px">
+        <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><rect width='36' height='36' rx='8' fill='%2306b6d4'/><text x='50%' y='52%' text-anchor='middle' fill='%23012227' font-family='Arial' font-size='18'>CB</text></svg>" alt="logo" style="border-radius:8px;"/>
+        <div>
+          <h1>Cinema Booking — Demo</h1>
+          <div class="muted">Select movie, showtime & seats. Cancellation produces a refund.</div>
         </div>
       </div>
+    </header>
 
-      <footer>
-        Demonstrates: <strong>Observer</strong> (Course → Student notifications), <strong>Strategy</strong> (grading algorithms), <strong>Command</strong> (actions)
-      </footer>
-    </div>
+    <div class="card layout">
+      <main>
+        <section class="controls">
+          <label>
+            Movie
+            <select id="movieSelect"></select>
+          </label>
+          <label>
+            Showtime
+            <select id="showtimeSelect"></select>
+          </label>
+          <label>
+            Price
+            <input type="number" id="priceInput" value="250" min="0" />
+          </label>
+          <button id="resetBtn" class="ghost">Reset</button>
+        </section>
 
-    <!-- RIGHT: Actions / Grading / Command History -->
-    <div class="card">
-      <h2>Actions</h2>
-
-      <div class="controls">
-        <div class="row">
-          <select id="selectedCourse"></select>
-        </div>
-
-        <div class="row">
-          <select id="selectedStudent"></select>
-        </div>
-
-        <div class="row">
-          <button id="enrollBtn" class="btn">Enroll</button>
-          <button id="dropBtn" class="btn ghost">Drop</button>
-        </div>
-
-        <div style="border-top:1px dashed rgba(255,255,255,0.03);padding-top:10px">
-          <small>Submit assignment (creates grade using chosen strategy)</small>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <input id="scoreInput" placeholder="score (0-100)" type="number" min="0" max="100" />
-            <select id="gradingStrategy">
-              <option value="percentage">Percentage</option>
-              <option value="cgpa">CGPA</option>
-              <option value="passfail">Pass/Fail</option>
-            </select>
+        <section class="seatmap card">
+          <h3 style="margin-top:0">Seat Map</h3>
+          <div class="rows" id="seatRows"></div>
+          <div class="legend">
+            <span><i class="box" style="background:#0b1320;border:1px solid rgba(255,255,255,0.03)"></i> Available</span>
+            <span><i class="box" style="background:#162029"></i> Booked</span>
+            <span><i class="box" style="background:transparent;border:2px solid rgba(6,182,212,0.3)"></i> Selected</span>
           </div>
-
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button id="submitBtn" class="btn">Submit Assignment</button>
-            <button id="undoBtn" class="btn ghost">Undo</button>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button id="bookBtn">Book Selected</button>
+            <div class="muted">Selected: <span id="selectedCount">0</span></div>
           </div>
+        </section>
+      </main>
+
+      <aside class="sidebar">
+        <div class="card" style="padding:12px">
+          <div class="small muted">Active bookings</div>
+          <div id="bookingsList" class="bookings"></div>
         </div>
 
-        <div class="history">
-          <h4 style="margin:6px 0">Command history</h4>
-          <div id="historyList"></div>
+        <div class="card" style="padding:12px">
+          <div class="small muted">System log</div>
+          <div id="log" class="muted" style="height:120px;overflow:auto;margin-top:8px"></div>
         </div>
-      </div>
+      </aside>
     </div>
 
+    <footer class="muted">Demo only — in-memory booking. Refresh clears state.</footer>
   </div>
 
   <script>
-    /******************************
-     * Observer Pattern
-     ******************************/
-    class Subject {
-      constructor(){ this.observers = new Set(); }
-      addObserver(o){ this.observers.add(o); }
-      removeObserver(o){ this.observers.delete(o); }
-      notify(payload){ for(const o of this.observers) o.update(payload); }
+    // --- Simple in-memory model ---
+    class Movie{constructor(id,title){this.id=id;this.title=title}}
+
+    class Theater{
+      constructor(rows=5, seatsPerRow=8){
+        this.rows=rows;this.seatsPerRow=seatsPerRow;this.baseSeats=this._generateSeatIds();
+        // availability: { showtime: { seatId: boolean } }
+        this.availability={};
+      }
+      _generateSeatIds(){
+        const seats=[];
+        for(let r=0;r<this.rows;r++){
+          const letter=String.fromCharCode(65+r);
+          for(let s=1;s<=this.seatsPerRow;s++) seats.push(`${letter}${s}`);
+        }
+        return seats;
+      }
+      initShow(showtime){
+        if(!this.availability[showtime]){
+          this.availability[showtime]={};
+          this.baseSeats.forEach(id=>this.availability[showtime][id]=true);
+        }
+      }
+      isSeatAvailable(showtime,seatId){this.initShow(showtime);if(!(seatId in this.availability[showtime])) throw new Error('Invalid seat');return this.availability[showtime][seatId];}
+      markBooked(showtime,seatId){this.initShow(showtime);if(!this.isSeatAvailable(showtime,seatId)) throw new Error('SeatAlreadyBooked');this.availability[showtime][seatId]=false}
+      markAvailable(showtime,seatId){this.initShow(showtime);if(this.availability[showtime][seatId]) throw new Error('SeatNotBooked');this.availability[showtime][seatId]=true}
     }
 
-    class Course extends Subject{
-      constructor(name){ super(); this.name=name; this.assignments=[]; }
-      publish(message){ const payload = {course:this.name, message, at: new Date()}; this.notify(payload); }
-      addAssignment(title){ this.assignments.push(title); this.publish('New Assignment: '+title); }
+    class BookingManager{
+      constructor(theater){this.theater=theater;this.tickets={};this.counter=1}
+      book(movie,showtime,seatIds,userId,price){
+        // atomic-like: check all seats first
+        for(const s of seatIds){if(!this.theater.isSeatAvailable(showtime,s)) throw new Error('SeatAlreadyBooked: '+s)}
+        const created=[];
+        for(const s of seatIds){this.theater.markBooked(showtime,s);const ticket={id:'T'+(this.counter++),movie,showtime,seatId:s,userId,price,status:'ACTIVE'};this.tickets[ticket.id]=ticket;created.push(ticket)}
+        return created;
+      }
+      cancel(ticketId){
+        const t=this.tickets[ticketId];if(!t) throw new Error('InvalidTicket');if(t.status==='CANCELLED') throw new Error('AlreadyCancelled');
+        this.theater.markAvailable(t.showtime,t.seatId);t.status='CANCELLED';return t.price; // full refund
+      }
+      activeTickets(){return Object.values(this.tickets).filter(t=>t.status==='ACTIVE')}
     }
 
-    class Student {
-      constructor(name){ this.name=name; this.notifications=[]; this.enrolled=new Set(); }
-      update(payload){ this.notifications.unshift(`${payload.course}: ${payload.message}`); renderNotifications(); }
-      enroll(course){ this.enrolled.add(course.name); }
-      drop(course){ this.enrolled.delete(course.name); }
-      isEnrolled(course){ return this.enrolled.has(course.name); }
+    // --- bootstrap demo data ---
+    const movies=[new Movie(1,'Interstellar'),new Movie(2,'The Matrix'),new Movie(3,'Inception')];
+    const showtimes=['2025-10-30 18:00','2025-10-30 21:00','2025-10-31 15:00'];
+    const theater=new Theater(4,7); // 4 rows x 7 seats
+    const manager=new BookingManager(theater);
+
+    // --- UI wiring ---
+    const movieSelect=document.getElementById('movieSelect');
+    const showtimeSelect=document.getElementById('showtimeSelect');
+    const seatRowsEl=document.getElementById('seatRows');
+    const selectedCountEl=document.getElementById('selectedCount');
+    const bookBtn=document.getElementById('bookBtn');
+    const bookingsList=document.getElementById('bookingsList');
+    const logEl=document.getElementById('log');
+    const priceInput=document.getElementById('priceInput');
+    const resetBtn=document.getElementById('resetBtn');
+
+    function log(msg){const p=document.createElement('div');p.textContent=new Date().toLocaleTimeString()+': '+msg;logEl.prepend(p)}
+
+    function populateControls(){
+      movies.forEach(m=>{const opt=document.createElement('option');opt.value=m.id;opt.textContent=m.title;movieSelect.appendChild(opt)});
+      showtimes.forEach(s=>{const opt=document.createElement('option');opt.value=s;opt.textContent=s;showtimeSelect.appendChild(opt)});
     }
 
-    /******************************
-     * Strategy Pattern (Grading)
-     ******************************/
-    class GradingStrategy {
-      grade(score){ throw new Error('override'); }
-    }
-    class PercentageGrading extends GradingStrategy{ grade(score){ return `${score.toFixed(1)}%`; } }
-    class CGPAGrading extends GradingStrategy{ grade(score){ return `${(score/10).toFixed(2)} CGPA`; } }
-    class PassFailGrading extends GradingStrategy{ grade(score){ return score>=40 ? 'PASS' : 'FAIL'; } }
-
-    function makeStrategy(key){
-      if(key==='percentage') return new PercentageGrading();
-      if(key==='cgpa') return new CGPAGrading();
-      return new PassFailGrading();
-    }
-
-    /******************************
-     * Command Pattern
-     ******************************/
-    class Command { execute(){ } undo(){ } description(){ return 'command'; } }
-
-    class EnrollCommand extends Command{
-      constructor(student, course){ super(); this.student=student; this.course=course; }
-      execute(){ if(!this.student.isEnrolled(this.course)){ this.student.enroll(this.course); return true; } return false; }
-      undo(){ this.student.drop(this.course); }
-      description(){ return `Enroll ${this.student.name} → ${this.course.name}` }
-    }
-
-    class DropCommand extends Command{
-      constructor(student, course){ super(); this.student=student; this.course=course; }
-      execute(){ if(this.student.isEnrolled(this.course)){ this.student.drop(this.course); return true; } return false; }
-      undo(){ this.student.enroll(this.course); }
-      description(){ return `Drop ${this.student.name} → ${this.course.name}` }
+    // render seat map for current showtime
+    let selectedSeats=new Set();
+    function renderSeatMap(){
+      const showtime=showtimeSelect.value;theater.initShow(showtime);
+      selectedSeats.clear();
+      seatRowsEl.innerHTML='';
+      const rows=theater.rows;const sp=theater.seatsPerRow;
+      for(let r=0;r<rows;r++){
+        const rowDiv=document.createElement('div');rowDiv.className='row';
+        const label=document.createElement('div');label.className='label';label.textContent=String.fromCharCode(65+r);
+        rowDiv.appendChild(label);
+        for(let s=1;s<=sp;s++){
+          const id=String.fromCharCode(65+r)+s;
+          const btn=document.createElement('button');btn.className='seat';btn.textContent=s;btn.dataset.seat=id;
+          if(!theater.isSeatAvailable(showtime,id)) btn.classList.add('booked');
+          btn.addEventListener('click',(e)=>{
+            if(btn.classList.contains('booked')) return; // cannot select booked
+            if(btn.classList.contains('selected')){btn.classList.remove('selected');selectedSeats.delete(id)} else {btn.classList.add('selected');selectedSeats.add(id)}
+            updateSelectedCount();
+          });
+          rowDiv.appendChild(btn);
+        }
+        seatRowsEl.appendChild(rowDiv);
+      }
+      updateSelectedCount();
     }
 
-    class SubmitAssignmentCommand extends Command{
-      constructor(student, course, assignmentTitle, strategy, score){ super(); this.student=student; this.course=course; this.assignmentTitle=assignmentTitle; this.strategy=strategy; this.score=score; this.result=null; }
-      execute(){ if(!this.student.isEnrolled(this.course)) return false; const grading = makeStrategy(this.strategy); this.result = grading.grade(this.score); // store a record
-        // Simulated attach grade to student (lightweight)
-        this.student.lastSubmission = {course:this.course.name, assignment:this.assignmentTitle, score:this.score, result:this.result, at:new Date()};
-        // Let course publish that assignment was submitted (observers will also get notified)
-        this.course.publish(`Submission by ${this.student.name} for ${this.assignmentTitle} — ${this.result}`);
-        return true; }
-      undo(){ if(this.student.lastSubmission && this.student.lastSubmission.assignment===this.assignmentTitle) delete this.student.lastSubmission; }
-      description(){ return `Submit ${this.assignmentTitle} by ${this.student.name} (${this.score}) → ${this.strategy}` }
+    function updateSelectedCount(){selectedCountEl.textContent=selectedSeats.size}
+
+    function renderBookings(){bookingsList.innerHTML='';const active=manager.activeTickets();
+      if(active.length===0) bookingsList.innerHTML='<div class="muted">No active bookings</div>';
+      for(const t of active){
+        const wrap=document.createElement('div');wrap.className='ticket';
+        wrap.innerHTML=`<div><div style="font-weight:700">${t.movie.title} - ${t.seatId}</div><div class="muted small">${t.showtime}</div></div>`;
+        const actions=document.createElement('div');actions.className='actions';
+        const cancelBtn=document.createElement('button');cancelBtn.className='ghost';cancelBtn.textContent='Cancel';
+        cancelBtn.addEventListener('click',()=>{
+          try{const refund=manager.cancel(t.id);log(`Cancelled ${t.id} refunded ₹${refund}`);renderSeatMap();renderBookings()}catch(err){alert(err.message)}
+        });
+        actions.appendChild(cancelBtn);
+        wrap.appendChild(actions);
+        bookingsList.appendChild(wrap);
+      }
     }
 
-    // Simple invoker that keeps history and undo
-    class Invoker{
-      constructor(){ this.history = []; }
-      execute(cmd){ const ok = cmd.execute(); if(ok){ this.history.unshift(cmd); renderHistory(); } return ok; }
-      undo(){ if(this.history.length===0) return null; const cmd = this.history.shift(); cmd.undo(); renderHistory(); return cmd; }
-    }
-
-    /******************************
-     * App state + rendering
-     ******************************/
-    const courses = [];
-    const students = [];
-    const invoker = new Invoker();
-
-    // helpers to select DOM
-    const coursesList = document.getElementById('coursesList');
-    const studentsList = document.getElementById('studentsList');
-    const notificationsEl = document.getElementById('notifications');
-    const selectedCourse = document.getElementById('selectedCourse');
-    const selectedStudent = document.getElementById('selectedStudent');
-    const historyList = document.getElementById('historyList');
-
-    function renderCourses(){
-      coursesList.innerHTML=''; selectedCourse.innerHTML='';
-      courses.forEach((c,idx)=>{
-        const div = document.createElement('div'); div.className='course';
-        div.innerHTML = `<div class=meta><strong>${c.name}</strong><small>${c.assignments.length} assignments</small></div>`;
-        const right = document.createElement('div');
-        const btnAssign = document.createElement('button'); btnAssign.innerText='New Asgmt';
-        btnAssign.onclick = ()=>{ const title = prompt('Assignment title'); if(title){ c.addAssignment(title); renderCourses(); } };
-        const sel = document.createElement('input'); sel.type='radio'; sel.name='courseSel'; sel.style.marginLeft='8px'; sel.onclick=()=>{ selectedCourse.value = idx; };
-        right.appendChild(btnAssign); right.appendChild(sel);
-        div.appendChild(right);
-        coursesList.appendChild(div);
-        const option = document.createElement('option'); option.value=idx; option.innerText=c.name; selectedCourse.appendChild(option);
-      });
-      // ensure selected index exists
-      if(selectedCourse.options.length) selectedCourse.selectedIndex = 0;
-    }
-
-    function renderStudents(){
-      studentsList.innerHTML=''; selectedStudent.innerHTML='';
-      students.forEach((s,idx)=>{
-        const el = document.createElement('div'); el.className='student';
-        el.innerHTML = `<div><strong>${s.name}</strong><div style='font-size:12px;color:var(--muted)'>Enrolled: ${[...s.enrolled].join(', ') || '—'}</div></div>`;
-        const cb = document.createElement('input'); cb.type='radio'; cb.name='studentSel'; cb.onclick=()=>{ selectedStudent.value = idx; };
-        el.appendChild(cb);
-        studentsList.appendChild(el);
-        const option = document.createElement('option'); option.value=idx; option.innerText=s.name; selectedStudent.appendChild(option);
-      });
-      if(selectedStudent.options.length) selectedStudent.selectedIndex = 0;
-    }
-
-    function renderNotifications(){
-      notificationsEl.innerHTML='';
-      // gather latest notifications from all students (flatten) - but show unique
-      const allNotes = {};
-      students.forEach(s=>{
-        s.notifications.slice(0,10).forEach(n=> allNotes[n+ '|' + s.name] = {text:n, who:s.name});
-      });
-      const entries = Object.values(allNotes).slice(0,30);
-      entries.forEach(e=>{
-        const d=document.createElement('div'); d.className='note'; d.innerText = e.text; notificationsEl.appendChild(d);
-      });
-    }
-
-    function renderHistory(){ historyList.innerHTML=''; invoker.history.forEach((c,i)=>{
-      const div = document.createElement('div'); div.className='row'; div.style.justifyContent='space-between';
-      div.innerHTML = `<div style='font-size:13px'>${c.description()}</div><div style='font-size:12px;color:var(--muted)'>${new Date().toLocaleTimeString()}</div>`;
-      historyList.appendChild(div);
-    });
-    }
-
-    // initial demo data
-    (function initDemo(){
-      const c1 = new Course('Intro to Programming');
-      const c2 = new Course('Algorithms');
-      courses.push(c1,c2);
-      const s1 = new Student('Karthisha');
-      const s2 = new Student('Ravi');
-      students.push(s1,s2);
-      // students subscribe to courses (observer)
-      c1.addObserver(s1); c1.addObserver(s2);
-      c2.addObserver(s1);
-      renderCourses(); renderStudents(); renderNotifications();
-    })();
-
-    /******************************
-     * UI wiring
-     ******************************/
-    document.getElementById('addCourseBtn').addEventListener('click', ()=>{
-      const name = document.getElementById('newCourseName').value.trim(); if(!name) return alert('Enter name');
-      const c = new Course(name); courses.push(c); // by default no observers
-      renderCourses(); document.getElementById('newCourseName').value='';
+    // book selected seats
+    bookBtn.addEventListener('click',()=>{
+      const movieId=movieSelect.value;const movie=movies.find(m=>m.id==movieId);const showtime=showtimeSelect.value;const seats=[...selectedSeats];const price=Number(priceInput.value)||250;const userId='demo_user';
+      if(seats.length===0){alert('Select at least 1 seat');return}
+      try{
+        const tickets=manager.book(movie,showtime,seats,userId,price);
+        tickets.forEach(t=>log(`Booked ${t.id} ${t.seatId} ₹${t.price}`));
+        renderSeatMap();renderBookings();
+      }catch(err){alert(err.message);}
     });
 
-    document.getElementById('publishBtn').addEventListener('click', ()=>{
-      const idx = selectedCourse.value; if(idx===''||!courses[idx]) return alert('Select a course');
-      const msg = prompt('Message to publish','New announcement'); if(!msg) return;
-      courses[idx].publish(msg); renderNotifications();
-    });
+    resetBtn.addEventListener('click',()=>{if(confirm('Reset all bookings for current showtime?')){const st=showtimeSelect.value;theater.initShow(st);theater.baseSeats.forEach(s=>theater.availability[st][s]=true);manager.tickets={};log('Reset performed');renderSeatMap();renderBookings()}})
 
-    document.getElementById('addStudentBtn').addEventListener('click', ()=>{
-      const name = document.getElementById('newStudentName').value.trim(); if(!name) return alert('Enter student name');
-      const s = new Student(name); students.push(s);
-      // auto-subscribe student to all courses for demo
-      courses.forEach(c=> c.addObserver(s));
-      renderStudents(); renderCourses(); document.getElementById('newStudentName').value='';
-    });
+    // when showtime or movie changes
+    showtimeSelect.addEventListener('change',renderSeatMap);
+    movieSelect.addEventListener('change',()=>{/* no-op for now */});
 
-    document.getElementById('enrollBtn').addEventListener('click', ()=>{
-      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
-      const cmd = new EnrollCommand(students[sIdx], courses[cIdx]); const ok = invoker.execute(cmd);
-      if(!ok) alert('Already enrolled'); renderStudents(); renderHistory();
-    });
-
-    document.getElementById('dropBtn').addEventListener('click', ()=>{
-      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
-      const cmd = new DropCommand(students[sIdx], courses[cIdx]); const ok = invoker.execute(cmd);
-      if(!ok) alert('Not enrolled'); renderStudents(); renderHistory();
-    });
-
-    document.getElementById('submitBtn').addEventListener('click', ()=>{
-      const sIdx = selectedStudent.value; const cIdx = selectedCourse.value; const score = parseFloat(document.getElementById('scoreInput').value);
-      const strat = document.getElementById('gradingStrategy').value; if(!students[sIdx]||!courses[cIdx]) return alert('Select both');
-      if(Number.isNaN(score)) return alert('Enter numeric score');
-      const asg = prompt('Assignment title','Homework 1') || 'Assignment';
-      const cmd = new SubmitAssignmentCommand(students[sIdx], courses[cIdx], asg, strat, score);
-      const ok = invoker.execute(cmd);
-      if(!ok) alert('Student must be enrolled to submit'); renderStudents(); renderNotifications(); renderHistory();
-    });
-
-    document.getElementById('undoBtn').addEventListener('click', ()=>{
-      const undone = invoker.undo(); if(!undone) alert('Nothing to undo'); renderStudents(); renderNotifications();
-    });
-
-    // simple keyboard: press 'p' to publish to selected
-    document.addEventListener('keydown', (e)=>{ if(e.key==='p') document.getElementById('publishBtn').click(); });
-
+    // initial
+    populateControls();renderSeatMap();renderBookings();
   </script>
 </body>
 </html>
