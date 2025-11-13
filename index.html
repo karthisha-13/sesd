@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieScope – Movie Info Search App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🎬 MovieScope</h1>
+    <p>Search your favorite movies & build your watchlist</p>
+  </header>
+
+  <section class="search-bar">
+    <input type="text" id="searchInput" placeholder="Enter movie title or year...">
+    <button id="searchBtn">Search</button>
+  </section>
+
+  <section id="movieContainer" class="movie-container"></section>
+
+  <section class="watchlist">
+    <h2>⭐ Your Watchlist</h2>
+    <ul id="watchlist"></ul>
+  </section>
+
+  <footer>
+    <p>Powered by <a href="https://www.omdbapi.com/" target="_blank">OMDb API</a></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
